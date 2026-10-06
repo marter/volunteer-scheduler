@@ -1,5 +1,9 @@
 from pydantic import BaseModel, EmailStr
 
+from app.models.user import OrgRole
+from app.schemas.organization import OrganizationRead
+from app.schemas.user import UserRead
+
 
 class SignUpRequest(BaseModel):
     email: EmailStr
@@ -18,3 +22,9 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class MeResponse(BaseModel):
+    user: UserRead
+    organization: OrganizationRead
+    role: OrgRole

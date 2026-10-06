@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import CurrentUser, get_current_user
 from app.core.db import get_db
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.organization import Organization
 from app.models.user import OrgMembership, OrgRole, User
-from app.schemas.auth import LoginRequest, SignUpRequest, TokenResponse
+from app.schemas.auth import LoginRequest, MeResponse, SignUpRequest, TokenResponse
+from app.schemas.organization import OrganizationRead
+from app.schemas.user import UserRead
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -32,6 +35,19 @@ def register(payload: SignUpRequest, db: Session = Depends(get_db)) -> TokenResp
 
     token = create_access_token(subject=str(user.id), org_id=str(org.id))
     return TokenResponse(access_token=token)
+
+
+@router.get("/me", response_model=MeResponse)
+def me(
+    db: Session = Depends(get_db), current: CurrentUser = Depends(get_current_user)
+) -> MeResponse:
+    org = db.get(Organization, current.org_id)
+    assert org is not None
+    return MeResponse(
+        user=UserRead.model_validate(current.user),
+        organization=OrganizationRead.model_validate(org),
+        role=current.role,
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
