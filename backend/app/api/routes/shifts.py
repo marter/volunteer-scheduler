@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
@@ -59,8 +60,19 @@ def create_shift(
     if event is None:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    shift = Shift(org_id=current.org_id, **payload.model_dump())
-    db.add(shift)
+    fields = payload.model_dump(exclude={"repeat_weeks"})
+    shifts = [
+        Shift(
+            org_id=current.org_id,
+            **{
+                **fields,
+                "starts_at": payload.starts_at + timedelta(weeks=week),
+                "ends_at": payload.ends_at + timedelta(weeks=week),
+            },
+        )
+        for week in range(payload.repeat_weeks)
+    ]
+    db.add_all(shifts)
     db.commit()
-    db.refresh(shift)
-    return _to_read_model(shift, db)
+    db.refresh(shifts[0])
+    return _to_read_model(shifts[0], db)

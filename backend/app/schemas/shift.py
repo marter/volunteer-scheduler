@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ShiftCreate(BaseModel):
@@ -9,6 +9,7 @@ class ShiftCreate(BaseModel):
     starts_at: datetime
     ends_at: datetime
     capacity: int = 1
+    repeat_weeks: int = Field(1, ge=1, le=52, description="Total occurrences, one per week")
 
 
 class ShiftRead(BaseModel):
