@@ -17,6 +17,9 @@ class Shift(UUIDPrimaryKeyMixin, OrgScopedMixin, TimestampMixin, Base):
     event_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("events.id"), nullable=False, index=True
     )
+    position_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("positions.id"), nullable=True, index=True
+    )
     starts_at: Mapped[datetime] = mapped_column(nullable=False)
     ends_at: Mapped[datetime] = mapped_column(nullable=False)
     capacity: Mapped[int] = mapped_column(nullable=False, default=1)

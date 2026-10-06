@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getEvent, listEventSignUps } from "../api/events";
 import { createShift, listShifts } from "../api/shifts";
 import { listMembers } from "../api/members";
+import { createPosition, createTeam, listTeams } from "../api/teams";
 import { cancelSignUp, createSignUp } from "../api/signups";
 import { extractErrorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -42,21 +43,33 @@ export function EventDetailPage() {
     queryFn: listMembers,
     enabled: canManage,
   });
+  const teamsQuery = useQuery({
+    queryKey: ["teams", eventId],
+    queryFn: () => listTeams(eventId!),
+    enabled: !!eventId,
+  });
 
   const [showForm, setShowForm] = useState(false);
   const [startsAt, setStartsAt] = useState(() => defaultShiftTimes().startsAt);
   const [endsAt, setEndsAt] = useState(() => defaultShiftTimes().endsAt);
   const [capacity, setCapacity] = useState(1);
   const [repeatWeeks, setRepeatWeeks] = useState(1);
+  const [positionId, setPositionId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [signUpError, setSignUpError] = useState<string | null>(null);
   const [pickerShiftId, setPickerShiftId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState("");
+  const [newTeamName, setNewTeamName] = useState("");
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [addingPositionTeamId, setAddingPositionTeamId] = useState<string | null>(null);
+  const [newPositionName, setNewPositionName] = useState("");
+  const [positionError, setPositionError] = useState<string | null>(null);
 
   const createShiftMutation = useMutation({
     mutationFn: () =>
       createShift({
         event_id: eventId!,
+        position_id: positionId || undefined,
         starts_at: startsAt,
         ends_at: endsAt,
         capacity,
@@ -69,6 +82,7 @@ export function EventDetailPage() {
       setEndsAt(defaults.endsAt);
       setCapacity(1);
       setRepeatWeeks(1);
+      setPositionId("");
       setShowForm(false);
       setError(null);
     },
@@ -94,9 +108,40 @@ export function EventDetailPage() {
     },
   });
 
+  const createTeamMutation = useMutation({
+    mutationFn: () => createTeam(eventId!, newTeamName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teams", eventId] });
+      setNewTeamName("");
+      setTeamError(null);
+    },
+    onError: (err) => setTeamError(extractErrorMessage(err, "Could not create team.")),
+  });
+
+  const createPositionMutation = useMutation({
+    mutationFn: (teamId: string) => createPosition(teamId, newPositionName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teams", eventId] });
+      setAddingPositionTeamId(null);
+      setNewPositionName("");
+      setPositionError(null);
+    },
+    onError: (err) => setPositionError(extractErrorMessage(err, "Could not create position.")),
+  });
+
   function handleCreateShift(formEvent: FormEvent) {
     formEvent.preventDefault();
     createShiftMutation.mutate();
+  }
+
+  function handleCreateTeam(formEvent: FormEvent) {
+    formEvent.preventDefault();
+    createTeamMutation.mutate();
+  }
+
+  function handleCreatePosition(formEvent: FormEvent, teamId: string) {
+    formEvent.preventDefault();
+    createPositionMutation.mutate(teamId);
   }
 
   function openPicker(shiftId: string) {
@@ -115,6 +160,13 @@ export function EventDetailPage() {
     signUpsByShift.set(signUp.shift_id, list);
   }
 
+  const positionLookup = new Map<string, { teamName: string; positionName: string }>();
+  for (const team of teamsQuery.data ?? []) {
+    for (const position of team.positions) {
+      positionLookup.set(position.id, { teamName: team.name, positionName: position.name });
+    }
+  }
+
   const pickerShift = shiftsQuery.data?.find((s) => s.id === pickerShiftId) ?? null;
   const pickerSignUps = pickerShift
     ? (signUpsByShift.get(pickerShift.id) ?? []).filter((s) => s.status !== "cancelled")
@@ -130,6 +182,8 @@ export function EventDetailPage() {
       );
     });
 
+  const showTeamsSection = canManage || (teamsQuery.data && teamsQuery.data.length > 0);
+
   return (
     <div>
       <h1>{event.name}</h1>
@@ -139,6 +193,92 @@ export function EventDetailPage() {
         {event.location ? ` · ${event.location}` : ""}
       </p>
       {event.description && <p>{event.description}</p>}
+
+      {showTeamsSection && (
+        <>
+          <div className="page-header">
+            <h2>Teams &amp; positions</h2>
+          </div>
+
+          {canManage && (
+            <form className="inline-form" onSubmit={handleCreateTeam}>
+              <label>
+                New team
+                <input
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  placeholder="e.g. Choir"
+                  required
+                />
+              </label>
+              {teamError && <p className="form-error">{teamError}</p>}
+              <button type="submit" disabled={createTeamMutation.isPending}>
+                {createTeamMutation.isPending ? "Adding…" : "Add team"}
+              </button>
+            </form>
+          )}
+
+          <ul className="team-list">
+            {teamsQuery.data?.length === 0 && <li className="hint">No teams yet.</li>}
+            {teamsQuery.data?.map((team) => (
+              <li key={team.id} className="team-item">
+                <div className="team-header">
+                  <strong>{team.name}</strong>
+                  {canManage &&
+                    (addingPositionTeamId === team.id ? (
+                      <form
+                        className="position-form"
+                        onSubmit={(e) => handleCreatePosition(e, team.id)}
+                      >
+                        <input
+                          autoFocus
+                          value={newPositionName}
+                          onChange={(e) => setNewPositionName(e.target.value)}
+                          placeholder="e.g. Guitar"
+                          required
+                        />
+                        <button type="submit" disabled={createPositionMutation.isPending}>
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => setAddingPositionTeamId(null)}
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => {
+                          setAddingPositionTeamId(team.id);
+                          setNewPositionName("");
+                        }}
+                      >
+                        + Position
+                      </button>
+                    ))}
+                </div>
+                {positionError && addingPositionTeamId === team.id && (
+                  <p className="form-error">{positionError}</p>
+                )}
+                <div className="position-chips">
+                  {team.positions.length === 0 && (
+                    <span className="hint">No positions yet.</span>
+                  )}
+                  {team.positions.map((p) => (
+                    <span key={p.id} className="position-chip">
+                      {p.name}
+                    </span>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       <div className="page-header">
         <h2>Shifts</h2>
@@ -194,6 +334,23 @@ export function EventDetailPage() {
               required
             />
           </label>
+          {teamsQuery.data && teamsQuery.data.length > 0 && (
+            <label>
+              Position
+              <select value={positionId} onChange={(e) => setPositionId(e.target.value)}>
+                <option value="">No specific position</option>
+                {teamsQuery.data.map((team) => (
+                  <optgroup key={team.id} label={team.name}>
+                    {team.positions.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          )}
           <p className="hint" style={{ margin: 0, flex: "1 1 100%" }}>
             {repeatWeeks > 1
               ? `Creates ${repeatWeeks} shifts, one each week on the same day and time.`
@@ -219,6 +376,7 @@ export function EventDetailPage() {
           );
           const mySignUp = shiftSignUps.find((s) => s.user.id === me!.user.id);
           const isFull = shift.open_slots <= 0;
+          const position = shift.position_id ? positionLookup.get(shift.position_id) : undefined;
 
           return (
             <li key={shift.id} className="shift-item">
@@ -228,6 +386,11 @@ export function EventDetailPage() {
                     {new Date(shift.starts_at).toLocaleString()} –{" "}
                     {new Date(shift.ends_at).toLocaleTimeString()}
                   </strong>
+                  {position && (
+                    <span className="position-tag">
+                      {position.teamName} — {position.positionName}
+                    </span>
+                  )}
                   <span className="hint">
                     {" "}
                     {shift.open_slots} / {shift.capacity} open

@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ShiftCreate(BaseModel):
     event_id: uuid.UUID
+    position_id: uuid.UUID | None = None
     starts_at: datetime
     ends_at: datetime
     capacity: int = 1
@@ -17,6 +18,7 @@ class ShiftRead(BaseModel):
 
     id: uuid.UUID
     event_id: uuid.UUID
+    position_id: uuid.UUID | None
     starts_at: datetime
     ends_at: datetime
     capacity: int

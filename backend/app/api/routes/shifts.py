@@ -10,6 +10,7 @@ from app.core.db import get_db
 from app.models.event import Event
 from app.models.shift import Shift
 from app.models.signup import SignUp, SignUpStatus
+from app.models.team import Position, Team
 from app.models.user import OrgRole
 from app.schemas.shift import ShiftCreate, ShiftRead
 
@@ -26,6 +27,7 @@ def _to_read_model(shift: Shift, db: Session) -> ShiftRead:
     return ShiftRead(
         id=shift.id,
         event_id=shift.event_id,
+        position_id=shift.position_id,
         starts_at=shift.starts_at,
         ends_at=shift.ends_at,
         capacity=shift.capacity,
@@ -59,6 +61,20 @@ def create_shift(
     )
     if event is None:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    if payload.position_id is not None:
+        position = (
+            db.query(Position)
+            .join(Team, Position.team_id == Team.id)
+            .filter(
+                Position.id == payload.position_id,
+                Position.org_id == current.org_id,
+                Team.event_id == payload.event_id,
+            )
+            .first()
+        )
+        if position is None:
+            raise HTTPException(status_code=404, detail="Position not found for this event")
 
     fields = payload.model_dump(exclude={"repeat_weeks"})
     shifts = [

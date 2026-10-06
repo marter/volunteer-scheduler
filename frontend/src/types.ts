@@ -43,6 +43,7 @@ export interface EventCreateInput {
 export interface Shift {
   id: string;
   event_id: string;
+  position_id: string | null;
   starts_at: string;
   ends_at: string;
   capacity: number;
@@ -51,10 +52,24 @@ export interface Shift {
 
 export interface ShiftCreateInput {
   event_id: string;
+  position_id?: string;
   starts_at: string;
   ends_at: string;
   capacity: number;
   repeat_weeks: number;
+}
+
+export interface Position {
+  id: string;
+  team_id: string;
+  name: string;
+}
+
+export interface Team {
+  id: string;
+  event_id: string;
+  name: string;
+  positions: Position[];
 }
 
 export interface SignUp {
