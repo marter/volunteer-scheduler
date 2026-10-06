@@ -3,7 +3,7 @@ import uuid
 
 from sqlalchemy import Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.base import TimestampMixin, UUIDPrimaryKeyMixin
@@ -41,3 +41,5 @@ class OrgMembership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     role: Mapped[OrgRole] = mapped_column(
         Enum(OrgRole, name="org_role"), nullable=False, default=OrgRole.VOLUNTEER
     )
+
+    user: Mapped[User] = relationship(lazy="raise")

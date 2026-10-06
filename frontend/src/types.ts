@@ -63,3 +63,17 @@ export interface SignUp {
   user_id: string;
   status: SignUpStatus;
 }
+
+export interface SignUpDetail {
+  id: string;
+  shift_id: string;
+  status: SignUpStatus;
+  user: User;
+  starts_at: string;
+  ends_at: string;
+}
+
+export interface Membership {
+  user: User;
+  role: OrgRole;
+}

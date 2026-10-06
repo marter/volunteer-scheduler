@@ -1,4 +1,4 @@
-import { Link, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 
 export function Layout() {
@@ -13,8 +13,10 @@ export function Layout() {
           </Link>
           {me && (
             <nav className="topbar-nav">
-              <Link to="/">Events</Link>
-              <Link to="/calendar">Calendar</Link>
+              <NavLink to="/" end>
+                Events
+              </NavLink>
+              <NavLink to="/calendar">Calendar</NavLink>
             </nav>
           )}
         </div>
@@ -24,7 +26,7 @@ export function Layout() {
             <span className="user-name">
               {me.user.full_name} · {me.role.replace("_", " ")}
             </span>
-            <button type="button" onClick={logout}>
+            <button type="button" className="btn-secondary" onClick={logout}>
               Log out
             </button>
           </div>

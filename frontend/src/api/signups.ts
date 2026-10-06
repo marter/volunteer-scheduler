@@ -1,8 +1,11 @@
 import { apiClient } from "./client";
 import type { SignUp } from "../types";
 
-export async function createSignUp(shiftId: string): Promise<SignUp> {
-  const { data } = await apiClient.post<SignUp>("/api/signups", { shift_id: shiftId });
+export async function createSignUp(shiftId: string, userId?: string): Promise<SignUp> {
+  const { data } = await apiClient.post<SignUp>("/api/signups", {
+    shift_id: shiftId,
+    user_id: userId,
+  });
   return data;
 }
 

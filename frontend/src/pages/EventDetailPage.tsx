@@ -2,13 +2,14 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getEvent } from "../api/events";
+import { getEvent, listEventSignUps } from "../api/events";
 import { createShift, listShifts } from "../api/shifts";
+import { listMembers } from "../api/members";
 import { cancelSignUp, createSignUp } from "../api/signups";
 import { extractErrorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { todayLocalDateTime } from "../dateUtils";
-import type { SignUp } from "../types";
+import type { SignUpDetail } from "../types";
 
 function defaultShiftTimes(): { startsAt: string; endsAt: string } {
   return { startsAt: todayLocalDateTime(9), endsAt: todayLocalDateTime(12) };
@@ -30,11 +31,16 @@ export function EventDetailPage() {
     queryFn: () => listShifts(eventId!),
     enabled: !!eventId,
   });
-
-  // The API doesn't yet expose "my signups", so we track sign-ups made this
-  // session locally. A page reload will lose the cancel option until that
-  // endpoint exists.
-  const [mySignUps, setMySignUps] = useState<Record<string, SignUp>>({});
+  const signUpsQuery = useQuery({
+    queryKey: ["signups", eventId],
+    queryFn: () => listEventSignUps(eventId!),
+    enabled: !!eventId,
+  });
+  const membersQuery = useQuery({
+    queryKey: ["members"],
+    queryFn: listMembers,
+    enabled: canManage,
+  });
 
   const [showForm, setShowForm] = useState(false);
   const [startsAt, setStartsAt] = useState(() => defaultShiftTimes().startsAt);
@@ -43,6 +49,7 @@ export function EventDetailPage() {
   const [repeatWeeks, setRepeatWeeks] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [signUpError, setSignUpError] = useState<string | null>(null);
+  const [selectedMemberByShift, setSelectedMemberByShift] = useState<Record<string, string>>({});
 
   const createShiftMutation = useMutation({
     mutationFn: () =>
@@ -67,24 +74,21 @@ export function EventDetailPage() {
   });
 
   const signUpMutation = useMutation({
-    mutationFn: (shiftId: string) => createSignUp(shiftId),
-    onSuccess: (signUp) => {
-      setMySignUps((prev) => ({ ...prev, [signUp.shift_id]: signUp }));
+    mutationFn: ({ shiftId, userId }: { shiftId: string; userId?: string }) =>
+      createSignUp(shiftId, userId),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shifts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["signups", eventId] });
       setSignUpError(null);
     },
     onError: (err) => setSignUpError(extractErrorMessage(err, "Could not sign up.")),
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (signUp: SignUp) => cancelSignUp(signUp.id),
-    onSuccess: (_, signUp) => {
-      setMySignUps((prev) => {
-        const next = { ...prev };
-        delete next[signUp.shift_id];
-        return next;
-      });
+    mutationFn: (signUp: SignUpDetail) => cancelSignUp(signUp.id),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shifts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["signups", eventId] });
     },
   });
 
@@ -97,6 +101,12 @@ export function EventDetailPage() {
   if (eventQuery.isError || !eventQuery.data) return <p className="form-error">Event not found.</p>;
 
   const event = eventQuery.data;
+  const signUpsByShift = new Map<string, SignUpDetail[]>();
+  for (const signUp of signUpsQuery.data ?? []) {
+    const list = signUpsByShift.get(signUp.shift_id) ?? [];
+    list.push(signUp);
+    signUpsByShift.set(signUp.shift_id, list);
+  }
 
   return (
     <div>
@@ -111,7 +121,7 @@ export function EventDetailPage() {
       <div className="page-header">
         <h2>Shifts</h2>
         {canManage && (
-          <button type="button" onClick={() => setShowForm((v) => !v)}>
+          <button type="button" onClick={() => setShowForm((v) => !v)} className={showForm ? "btn-secondary" : undefined}>
             {showForm ? "Cancel" : "New shift"}
           </button>
         )}
@@ -178,40 +188,102 @@ export function EventDetailPage() {
 
       <ul className="shift-list">
         {shiftsQuery.data?.map((shift) => {
-          const mySignUp = mySignUps[shift.id];
-          const isFull = shift.open_slots <= 0 && !mySignUp;
+          const shiftSignUps = (signUpsByShift.get(shift.id) ?? []).filter(
+            (s) => s.status !== "cancelled",
+          );
+          const selectedUserId = selectedMemberByShift[shift.id] || me!.user.id;
+          const targetSignUp = shiftSignUps.find((s) => s.user.id === selectedUserId);
+          const isFull = shift.open_slots <= 0;
+
           return (
-            <li key={shift.id}>
-              <div>
-                <strong>
-                  {new Date(shift.starts_at).toLocaleString()} –{" "}
-                  {new Date(shift.ends_at).toLocaleTimeString()}
-                </strong>
-                <span className="hint">
-                  {" "}
-                  {shift.open_slots} / {shift.capacity} open
-                </span>
+            <li key={shift.id} className="shift-item">
+              <div className="shift-row">
+                <div>
+                  <strong>
+                    {new Date(shift.starts_at).toLocaleString()} –{" "}
+                    {new Date(shift.ends_at).toLocaleTimeString()}
+                  </strong>
+                  <span className="hint">
+                    {" "}
+                    {shift.open_slots} / {shift.capacity} open
+                  </span>
+                </div>
+
+                <div className="shift-actions">
+                  {canManage && membersQuery.data && (
+                    <select
+                      value={selectedMemberByShift[shift.id] ?? ""}
+                      onChange={(e) =>
+                        setSelectedMemberByShift((prev) => ({
+                          ...prev,
+                          [shift.id]: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Myself</option>
+                      {membersQuery.data
+                        .filter((m) => m.user.id !== me!.user.id)
+                        .map((m) => (
+                          <option key={m.user.id} value={m.user.id}>
+                            {m.user.full_name}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+
+                  {targetSignUp ? (
+                    <span className="signup-status">
+                      {targetSignUp.status === "confirmed" ? "Signed up" : "Waitlisted"}
+                      <button
+                        type="button"
+                        onClick={() => cancelMutation.mutate(targetSignUp)}
+                        disabled={cancelMutation.isPending}
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        signUpMutation.mutate({
+                          shiftId: shift.id,
+                          userId: selectedMemberByShift[shift.id] || undefined,
+                        })
+                      }
+                      disabled={signUpMutation.isPending}
+                    >
+                      {isFull ? "Join waitlist" : "Sign up"}
+                    </button>
+                  )}
+                </div>
               </div>
-              {mySignUp ? (
-                <span className="signup-status">
-                  {mySignUp.status === "confirmed" ? "You're signed up" : "Waitlisted"}{" "}
-                  <button
-                    type="button"
-                    onClick={() => cancelMutation.mutate(mySignUp)}
-                    disabled={cancelMutation.isPending}
-                  >
-                    Cancel
-                  </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => signUpMutation.mutate(shift.id)}
-                  disabled={signUpMutation.isPending}
-                >
-                  {isFull ? "Join waitlist" : "Sign up"}
-                </button>
-              )}
+
+              <ul className="volunteer-list">
+                {shiftSignUps.length === 0 && <li className="hint">No volunteers yet.</li>}
+                {shiftSignUps.map((signUp) => {
+                  const canRemove = canManage || signUp.user.id === me!.user.id;
+                  return (
+                    <li key={signUp.id}>
+                      <span>
+                        {signUp.user.full_name}
+                        {signUp.status !== "confirmed" && (
+                          <span className="hint"> ({signUp.status})</span>
+                        )}
+                      </span>
+                      {canRemove && (
+                        <button
+                          type="button"
+                          onClick={() => cancelMutation.mutate(signUp)}
+                          disabled={cancelMutation.isPending}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             </li>
           );
         })}

@@ -41,7 +41,11 @@ export function DashboardPage() {
       <div className="page-header">
         <h1>Events</h1>
         {canManage && (
-          <button type="button" onClick={() => setShowForm((v) => !v)}>
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className={showForm ? "btn-secondary" : undefined}
+          >
             {showForm ? "Cancel" : "New event"}
           </button>
         )}

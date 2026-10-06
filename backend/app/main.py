@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, events, shifts, signups
+from app.api.routes import auth, events, members, shifts, signups
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -18,6 +18,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(events.router)
+app.include_router(members.router)
 app.include_router(shifts.router)
 app.include_router(signups.router)
 

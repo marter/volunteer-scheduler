@@ -19,3 +19,10 @@ class MembershipRead(BaseModel):
 
     user: UserRead
     role: OrgRole
+
+
+class MemberCreate(BaseModel):
+    email: EmailStr
+    full_name: str
+    password: str | None = None
+    role: OrgRole = OrgRole.VOLUNTEER
