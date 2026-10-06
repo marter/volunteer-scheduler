@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { listEvents } from "../api/events";
-import type { Event } from "../types";
+import { listShifts } from "../api/shifts";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MAX_VISIBLE = 3;
@@ -15,20 +15,45 @@ function toDateKey(year: number, month: number, day: number): string {
   return `${year}-${pad(month + 1)}-${pad(day)}`;
 }
 
+function localDateKeyFromISO(iso: string): string {
+  const d = new Date(iso);
+  return toDateKey(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+interface DayEntry {
+  eventId: string;
+  eventName: string;
+}
+
 export function CalendarPage() {
   const eventsQuery = useQuery({ queryKey: ["events"], queryFn: listEvents });
+  const shiftsQuery = useQuery({ queryKey: ["shifts", "all"], queryFn: () => listShifts() });
   const today = new Date();
   const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
 
-  const eventsByDate = useMemo(() => {
-    const map = new Map<string, Event[]>();
-    for (const event of eventsQuery.data ?? []) {
-      const list = map.get(event.start_date) ?? [];
-      list.push(event);
-      map.set(event.start_date, list);
+  // An event appears on its start_date, plus the date of every shift it has
+  // (shift recurrence generates one shift per week, each on its own date) —
+  // deduped so an event shows at most once per day.
+  const entriesByDate = useMemo(() => {
+    const map = new Map<string, Map<string, DayEntry>>();
+    const addEntry = (dateKey: string, eventId: string, eventName: string) => {
+      const dayMap = map.get(dateKey) ?? new Map<string, DayEntry>();
+      dayMap.set(eventId, { eventId, eventName });
+      map.set(dateKey, dayMap);
+    };
+
+    const events = eventsQuery.data ?? [];
+    const eventNameById = new Map(events.map((e) => [e.id, e.name]));
+    for (const event of events) {
+      addEntry(event.start_date, event.id, event.name);
+    }
+    for (const shift of shiftsQuery.data ?? []) {
+      const eventName = eventNameById.get(shift.event_id);
+      if (!eventName) continue;
+      addEntry(localDateKeyFromISO(shift.starts_at), shift.event_id, eventName);
     }
     return map;
-  }, [eventsQuery.data]);
+  }, [eventsQuery.data, shiftsQuery.data]);
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -63,7 +88,7 @@ export function CalendarPage() {
         </div>
       </div>
 
-      {eventsQuery.isLoading && <p>Loading…</p>}
+      {(eventsQuery.isLoading || shiftsQuery.isLoading) && <p>Loading…</p>}
 
       <div className="calendar-grid">
         {WEEKDAYS.map((w) => (
@@ -73,9 +98,9 @@ export function CalendarPage() {
         ))}
         {cells.map((cell, i) => {
           if (!cell) return <div key={`blank-${i}`} className="calendar-cell calendar-cell--empty" />;
-          const dayEvents = eventsByDate.get(cell.dateKey) ?? [];
-          const visible = dayEvents.slice(0, MAX_VISIBLE);
-          const overflow = dayEvents.length - visible.length;
+          const dayEntries = Array.from(entriesByDate.get(cell.dateKey)?.values() ?? []);
+          const visible = dayEntries.slice(0, MAX_VISIBLE);
+          const overflow = dayEntries.length - visible.length;
           return (
             <div
               key={cell.dateKey}
@@ -83,9 +108,9 @@ export function CalendarPage() {
             >
               <span className="calendar-day-number">{cell.day}</span>
               <div className="calendar-events">
-                {visible.map((event) => (
-                  <Link key={event.id} to={`/events/${event.id}`} className="calendar-event">
-                    {event.name}
+                {visible.map((entry) => (
+                  <Link key={entry.eventId} to={`/events/${entry.eventId}`} className="calendar-event">
+                    {entry.eventName}
                   </Link>
                 ))}
                 {overflow > 0 && <span className="calendar-overflow">+{overflow} more</span>}

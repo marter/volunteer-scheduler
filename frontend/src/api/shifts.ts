@@ -1,8 +1,10 @@
 import { apiClient } from "./client";
 import type { Shift, ShiftCreateInput } from "../types";
 
-export async function listShifts(eventId: string): Promise<Shift[]> {
-  const { data } = await apiClient.get<Shift[]>("/api/shifts", { params: { event_id: eventId } });
+export async function listShifts(eventId?: string): Promise<Shift[]> {
+  const { data } = await apiClient.get<Shift[]>("/api/shifts", {
+    params: eventId ? { event_id: eventId } : undefined,
+  });
   return data;
 }
 
