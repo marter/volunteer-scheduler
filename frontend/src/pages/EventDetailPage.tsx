@@ -9,6 +9,7 @@ import { cancelSignUp, createSignUp } from "../api/signups";
 import { extractErrorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { todayLocalDateTime } from "../dateUtils";
+import { Modal } from "../Modal";
 import type { SignUpDetail } from "../types";
 
 function defaultShiftTimes(): { startsAt: string; endsAt: string } {
@@ -49,7 +50,8 @@ export function EventDetailPage() {
   const [repeatWeeks, setRepeatWeeks] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [signUpError, setSignUpError] = useState<string | null>(null);
-  const [selectedMemberByShift, setSelectedMemberByShift] = useState<Record<string, string>>({});
+  const [pickerShiftId, setPickerShiftId] = useState<string | null>(null);
+  const [memberSearch, setMemberSearch] = useState("");
 
   const createShiftMutation = useMutation({
     mutationFn: () =>
@@ -97,6 +99,11 @@ export function EventDetailPage() {
     createShiftMutation.mutate();
   }
 
+  function openPicker(shiftId: string) {
+    setPickerShiftId(shiftId);
+    setMemberSearch("");
+  }
+
   if (eventQuery.isLoading) return <p>Loading…</p>;
   if (eventQuery.isError || !eventQuery.data) return <p className="form-error">Event not found.</p>;
 
@@ -107,6 +114,21 @@ export function EventDetailPage() {
     list.push(signUp);
     signUpsByShift.set(signUp.shift_id, list);
   }
+
+  const pickerShift = shiftsQuery.data?.find((s) => s.id === pickerShiftId) ?? null;
+  const pickerSignUps = pickerShift
+    ? (signUpsByShift.get(pickerShift.id) ?? []).filter((s) => s.status !== "cancelled")
+    : [];
+  const pickerCandidates = (membersQuery.data ?? [])
+    .filter((m) => m.user.id !== me!.user.id)
+    .filter((m) => !pickerSignUps.some((s) => s.user.id === m.user.id))
+    .filter((m) => {
+      const q = memberSearch.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        m.user.full_name.toLowerCase().includes(q) || m.user.email.toLowerCase().includes(q)
+      );
+    });
 
   return (
     <div>
@@ -121,7 +143,11 @@ export function EventDetailPage() {
       <div className="page-header">
         <h2>Shifts</h2>
         {canManage && (
-          <button type="button" onClick={() => setShowForm((v) => !v)} className={showForm ? "btn-secondary" : undefined}>
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className={showForm ? "btn-secondary" : undefined}
+          >
             {showForm ? "Cancel" : "New shift"}
           </button>
         )}
@@ -191,8 +217,7 @@ export function EventDetailPage() {
           const shiftSignUps = (signUpsByShift.get(shift.id) ?? []).filter(
             (s) => s.status !== "cancelled",
           );
-          const selectedUserId = selectedMemberByShift[shift.id] || me!.user.id;
-          const targetSignUp = shiftSignUps.find((s) => s.user.id === selectedUserId);
+          const mySignUp = shiftSignUps.find((s) => s.user.id === me!.user.id);
           const isFull = shift.open_slots <= 0;
 
           return (
@@ -210,33 +235,18 @@ export function EventDetailPage() {
                 </div>
 
                 <div className="shift-actions">
-                  {canManage && membersQuery.data && (
-                    <select
-                      value={selectedMemberByShift[shift.id] ?? ""}
-                      onChange={(e) =>
-                        setSelectedMemberByShift((prev) => ({
-                          ...prev,
-                          [shift.id]: e.target.value,
-                        }))
-                      }
-                    >
-                      <option value="">Myself</option>
-                      {membersQuery.data
-                        .filter((m) => m.user.id !== me!.user.id)
-                        .map((m) => (
-                          <option key={m.user.id} value={m.user.id}>
-                            {m.user.full_name}
-                          </option>
-                        ))}
-                    </select>
+                  {canManage && (
+                    <button type="button" className="btn-secondary" onClick={() => openPicker(shift.id)}>
+                      Sign up someone…
+                    </button>
                   )}
 
-                  {targetSignUp ? (
+                  {mySignUp ? (
                     <span className="signup-status">
-                      {targetSignUp.status === "confirmed" ? "Signed up" : "Waitlisted"}
+                      {mySignUp.status === "confirmed" ? "You're signed up" : "Waitlisted"}
                       <button
                         type="button"
-                        onClick={() => cancelMutation.mutate(targetSignUp)}
+                        onClick={() => cancelMutation.mutate(mySignUp)}
                         disabled={cancelMutation.isPending}
                       >
                         Cancel
@@ -245,12 +255,7 @@ export function EventDetailPage() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() =>
-                        signUpMutation.mutate({
-                          shiftId: shift.id,
-                          userId: selectedMemberByShift[shift.id] || undefined,
-                        })
-                      }
+                      onClick={() => signUpMutation.mutate({ shiftId: shift.id })}
                       disabled={signUpMutation.isPending}
                     >
                       {isFull ? "Join waitlist" : "Sign up"}
@@ -288,6 +293,41 @@ export function EventDetailPage() {
           );
         })}
       </ul>
+
+      {pickerShift && (
+        <Modal title="Sign up someone" onClose={() => setPickerShiftId(null)}>
+          <input
+            type="text"
+            placeholder="Search by name or email…"
+            value={memberSearch}
+            onChange={(e) => setMemberSearch(e.target.value)}
+            autoFocus
+            className="member-search"
+          />
+          <ul className="member-picker-list">
+            {pickerCandidates.length === 0 && (
+              <li className="hint">
+                {membersQuery.isLoading ? "Loading members…" : "No matching members."}
+              </li>
+            )}
+            {pickerCandidates.map((m) => (
+              <li key={m.user.id}>
+                <div>
+                  <div>{m.user.full_name}</div>
+                  <div className="hint">{m.user.email}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => signUpMutation.mutate({ shiftId: pickerShift.id, userId: m.user.id })}
+                  disabled={signUpMutation.isPending}
+                >
+                  {pickerShift.open_slots <= 0 ? "Join waitlist" : "Sign up"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Modal>
+      )}
     </div>
   );
 }
