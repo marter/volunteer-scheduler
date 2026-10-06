@@ -11,6 +11,7 @@ export interface Organization {
 export interface User {
   id: string;
   email: string;
+  phone: string | null;
   full_name: string;
   is_active: boolean;
 }
@@ -90,5 +91,13 @@ export interface SignUpDetail {
 
 export interface Membership {
   user: User;
+  role: OrgRole;
+}
+
+export interface MemberCreateInput {
+  email: string;
+  full_name: string;
+  phone?: string;
+  password?: string;
   role: OrgRole;
 }

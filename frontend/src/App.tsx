@@ -6,6 +6,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EventDetailPage } from "./pages/EventDetailPage";
 import { CalendarPage } from "./pages/CalendarPage";
+import { MembersPage } from "./pages/MembersPage";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/members" element={<MembersPage />} />
           <Route path="/events/:eventId" element={<EventDetailPage />} />
         </Route>
       </Route>

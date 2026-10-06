@@ -10,6 +10,7 @@ class UserRead(BaseModel):
 
     id: uuid.UUID
     email: EmailStr
+    phone: str | None
     full_name: str
     is_active: bool
 
@@ -24,5 +25,6 @@ class MembershipRead(BaseModel):
 class MemberCreate(BaseModel):
     email: EmailStr
     full_name: str
+    phone: str | None = None
     password: str | None = None
     role: OrgRole = OrgRole.VOLUNTEER

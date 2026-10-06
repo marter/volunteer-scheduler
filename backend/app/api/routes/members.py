@@ -37,6 +37,7 @@ def add_member(
             )
         user = User(
             email=payload.email,
+            phone=payload.phone,
             full_name=payload.full_name,
             hashed_password=hash_password(payload.password),
         )

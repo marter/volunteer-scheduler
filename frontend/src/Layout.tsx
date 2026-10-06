@@ -17,6 +17,7 @@ export function Layout() {
                 Events
               </NavLink>
               <NavLink to="/calendar">Calendar</NavLink>
+              <NavLink to="/members">Members</NavLink>
             </nav>
           )}
         </div>
