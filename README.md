@@ -1,16 +1,62 @@
 # Volunteer Scheduler
 
-A multi-tenant volunteer scheduling platform. Organizations manage events and
-shifts; volunteers sign up for shifts, either recurring (e.g. weekly food
-bank ops) or one-off (e.g. a single community cleanup).
+A multi-tenant volunteer scheduling platform. Organizations manage events,
+teams, and shifts; volunteers sign up for shifts (or get signed up by an
+admin), either one-off or recurring weekly.
+
+> **This README tracks current status, not just setup.** Update the
+> Features section below whenever something lands or changes — it should
+> always reflect what's actually in the code, not the original plan.
 
 ## Repo layout
 
 - `backend/` — FastAPI + SQLAlchemy + Postgres API
 - `frontend/` — React + TypeScript (Vite) web app
-- `infra/` — Terraform for AWS (EKS, RDS, ECR, networking)
+- `infra/` — Terraform for AWS (EKS, RDS, ECR, networking) — not started yet
 
-The iOS app lives in a separate repo: `volunteer-scheduler-ios`.
+The iOS app lives in a separate repo: `volunteer-scheduler-ios` (not started).
+
+## Features
+
+### Done
+
+- **Auth**: register (creates an org + you as its admin), login, JWT bearer
+  tokens.
+- **Events**: one-off, with name/description/location/date range.
+- **Teams & positions**: a team (e.g. "Choir") belongs to an event and
+  groups positions (e.g. "Guitar") that shifts can optionally be tagged
+  with.
+- **Shifts**: a time slot + capacity under an event, optionally tagged with
+  a position. Weekly recurrence happens at creation time (`repeat_weeks`
+  generates N shifts, one per week) — not a live recurrence rule.
+- **Sign-ups**: volunteers sign up / cancel for themselves; shifts
+  waitlist automatically once full.
+- **Admin sign-up-on-behalf**: org_admin/coordinator can sign up another
+  member via a searchable modal (not a plain dropdown — doesn't scale).
+- **Event roster**: each shift shows who's signed up; admins/coordinators
+  can remove anyone, volunteers can remove themselves.
+- **Members**: org roster with contact info (email, phone); org_admin can
+  add a member directly (creates the user if the email doesn't already
+  have one, otherwise just adds the existing user to this org).
+- **Calendar**: compact monthly view of events, plotting each one on its
+  start date plus every date one of its shifts falls on (so recurrence
+  shows up correctly).
+- Local dev via Docker Compose, Alembic migrations, ruff/mypy/pytest on the
+  backend, tsc/oxlint on the frontend.
+
+### Not yet
+
+- AWS deployment — `infra/` is an empty placeholder (planned: EKS, RDS,
+  ECR via Terraform).
+- iOS app — separate repo exists, nothing built.
+- Email invitations — admins set a password directly when adding a new
+  member; no invite-link flow.
+- Recurring *events* (multi-day spans, RRULE-style recurring series) —
+  `Event.recurrence_rule` exists as a column but isn't read or written by
+  anything. Only shift-level weekly recurrence (`repeat_weeks`) is real.
+- Coordinator-level permissions on members — adding a member is
+  `org_admin`-only; coordinators can manage events/shifts/teams but not
+  org membership.
 
 ## Local development
 
@@ -57,10 +103,12 @@ npm run dev
   `org_id`. Requests are scoped to an org via the JWT (`org_id` claim) and
   every query filters on it — see `app/api/deps.py`.
 - **Auth**: JWT bearer tokens. A user has one global identity (`User`) and a
-  role per organization (`OrgMembership`).
-- **Core domain**: `Organization` → `Event` (one-off or recurring via an
-  RRULE string) → `Shift` (concrete time slot with capacity) → `SignUp`
-  (volunteer's claim on a shift, confirmed or waitlisted).
+  role per organization (`OrgMembership`): `org_admin`, `coordinator`, or
+  `volunteer`.
+- **Core domain**: `Organization` → `Event` → `Team` (grouped positions,
+  e.g. "Choir") → `Position` (e.g. "Guitar") and `Event` → `Shift`
+  (concrete time slot with capacity, optionally tagged with a `Position`)
+  → `SignUp` (volunteer's claim on a shift, confirmed/waitlisted/cancelled).
 
 ## Deployment (planned)
 
