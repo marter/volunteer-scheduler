@@ -1,3 +1,9 @@
+# Explicit, distinct project name: deploy/docker-compose.prod.yml also sets a name
+# ("volunteer-scheduler") and this file's default (the folder name) would otherwise
+# match it exactly -- running the prod compose file locally would silently replace
+# these dev containers (hit this once; no data was lost, but don't repeat it).
+name: volunteer-scheduler-dev
+
 services:
   db:
     image: postgres:16-alpine
@@ -46,5 +52,8 @@ services:
 
 volumes:
   db_data:
+    name: volunteer-scheduler_db_data
   backend_venv:
+    name: volunteer-scheduler_backend_venv
   frontend_node_modules:
+    name: volunteer-scheduler_frontend_node_modules
