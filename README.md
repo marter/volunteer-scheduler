@@ -112,8 +112,8 @@ npm run dev
 
 ## Deployment
 
-Shares a Lightsail server with a sibling project (`fake-sportsbook`): one
-shared Caddy container handles HTTPS and routing by hostname, Docker
-Compose runs db/backend/frontend per app with no published ports. GitHub
-Actions deploys automatically on push to `main`. See `deploy/README.md`
-for the full setup and deploy flow.
+**Live** at `volunteer.martinteran.me`. Shares a Lightsail server with a
+sibling project (`fake-sportsbook`): one shared Caddy container handles
+HTTPS and routing by hostname, Docker Compose runs db/backend/frontend per
+app with no published ports. GitHub Actions deploys automatically on push
+to `main`. See `deploy/README.md` for the full setup and deploy flow.
