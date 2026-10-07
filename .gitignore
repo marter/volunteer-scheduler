@@ -1,7 +1,10 @@
 .DS_Store
 *.log
 
-# Terraform (infra/)
+# Production secrets live only on the server
+deploy/.env.prod
+
+# Terraform (infra/) -- superseded by deploy/, kept in case we revisit it
 infra/**/.terraform/
 infra/**/*.tfstate
 infra/**/*.tfstate.*

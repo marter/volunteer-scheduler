@@ -12,7 +12,9 @@ admin), either one-off or recurring weekly.
 
 - `backend/` — FastAPI + SQLAlchemy + Postgres API
 - `frontend/` — React + TypeScript (Vite) web app
-- `infra/` — Terraform for AWS (EKS, RDS, ECR, networking) — not started yet
+- `deploy/` — production Docker Compose + deploy script for the shared
+  Lightsail server (see `deploy/README.md`)
+- `infra/` — superseded; see `infra/README.md`
 
 The iOS app lives in a separate repo: `volunteer-scheduler-ios` (not started).
 
@@ -46,8 +48,6 @@ The iOS app lives in a separate repo: `volunteer-scheduler-ios` (not started).
 
 ### Not yet
 
-- AWS deployment — `infra/` is an empty placeholder (planned: EKS, RDS,
-  ECR via Terraform).
 - iOS app — separate repo exists, nothing built.
 - Email invitations — admins set a password directly when adding a new
   member; no invite-link flow.
@@ -110,8 +110,10 @@ npm run dev
   (concrete time slot with capacity, optionally tagged with a `Position`)
   → `SignUp` (volunteer's claim on a shift, confirmed/waitlisted/cancelled).
 
-## Deployment (planned)
+## Deployment
 
-Backend and frontend are containerized (see each service's `Dockerfile`) for
-deployment to AWS EKS, with RDS Postgres and images pushed to ECR. See
-`infra/README.md` for the current state of the Terraform setup.
+Shares a Lightsail server with a sibling project (`fake-sportsbook`): one
+shared Caddy container handles HTTPS and routing by hostname, Docker
+Compose runs db/backend/frontend per app with no published ports. GitHub
+Actions deploys automatically on push to `main`. See `deploy/README.md`
+for the full setup and deploy flow.
