@@ -24,7 +24,12 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
 class MeResponse(BaseModel):
     user: UserRead
     organization: OrganizationRead
     role: OrgRole
+    verification_required: bool

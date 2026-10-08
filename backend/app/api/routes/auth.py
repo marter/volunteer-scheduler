@@ -1,14 +1,24 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, get_current_user
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.organization import Organization
 from app.models.user import OrgMembership, OrgRole, User
-from app.schemas.auth import LoginRequest, MeResponse, SignUpRequest, TokenResponse
+from app.schemas.auth import (
+    LoginRequest,
+    MeResponse,
+    SignUpRequest,
+    TokenResponse,
+    VerifyEmailRequest,
+)
 from app.schemas.organization import OrganizationRead
 from app.schemas.user import UserRead
+from app.services import verification
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -31,6 +41,8 @@ def register(payload: SignUpRequest, db: Session = Depends(get_db)) -> TokenResp
 
     membership = OrgMembership(org_id=org.id, user_id=user.id, role=OrgRole.ORG_ADMIN)
     db.add(membership)
+    if get_settings().email_verification_required:
+        verification.send_verification(db, user)
     db.commit()
 
     token = create_access_token(subject=str(user.id), org_id=str(org.id))
@@ -47,6 +59,7 @@ def me(
         user=UserRead.model_validate(current.user),
         organization=OrganizationRead.model_validate(org),
         role=current.role,
+        verification_required=get_settings().email_verification_required,
     )
 
 
@@ -72,3 +85,26 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
 
     token = create_access_token(subject=str(user.id), org_id=str(org.id))
     return TokenResponse(access_token=token)
+
+
+@router.post("/verify-email", response_model=UserRead)
+def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)) -> User:
+    """Confirms an email from the emailed link. No login needed: the token is the proof."""
+    try:
+        return verification.verify(db, payload.token)
+    except verification.VerificationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/resend-verification", status_code=status.HTTP_204_NO_CONTENT)
+def resend_verification(
+    db: Session = Depends(get_db), current: CurrentUser = Depends(get_current_user)
+) -> None:
+    if current.user.email_verified:
+        raise HTTPException(status_code=400, detail="Your email is already verified")
+    try:
+        verification.check_rate_limit(db, current.user, datetime.now(UTC))
+    except verification.TooManyEmails as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    verification.send_verification(db, current.user)
+    db.commit()

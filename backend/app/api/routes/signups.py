@@ -10,6 +10,7 @@ from app.models.shift import Shift
 from app.models.signup import SignUp, SignUpStatus
 from app.models.user import OrgMembership, OrgRole
 from app.schemas.signup import SignUpCreate, SignUpRead
+from app.services import verification
 
 router = APIRouter(prefix="/api/signups", tags=["signups"])
 
@@ -35,6 +36,10 @@ def create_signup(
         )
         if member is None:
             raise HTTPException(status_code=404, detail="User is not a member of this organization")
+    elif not verification.is_verified(current.user):
+        # Only self-signup is gated -- an admin/coordinator signing someone else up is their
+        # own call, and many volunteers never log in to self-serve at all.
+        raise HTTPException(status_code=403, detail="Verify your email to sign up for a shift")
 
     shift = (
         db.query(Shift)

@@ -13,6 +13,7 @@ class UserRead(BaseModel):
     phone: str | None
     full_name: str
     is_active: bool
+    email_verified: bool
 
 
 class MembershipRead(BaseModel):
