@@ -34,3 +34,11 @@ export async function fetchMe(): Promise<Me> {
   const { data } = await apiClient.get<Me>("/api/auth/me");
   return data;
 }
+
+export async function verifyEmail(token: string): Promise<void> {
+  await apiClient.post("/api/auth/verify-email", { token });
+}
+
+export async function resendVerification(): Promise<void> {
+  await apiClient.post("/api/auth/resend-verification");
+}

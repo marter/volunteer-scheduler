@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
+import { VerifyBanner } from "./VerifyBanner";
 
 export function Layout() {
   const { me, logout } = useAuth();
@@ -8,12 +9,12 @@ export function Layout() {
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar-left">
-          <Link to="/" className="brand">
+          <Link to="/dashboard" className="brand">
             Volunteer Scheduler
           </Link>
           {me && (
             <nav className="topbar-nav">
-              <NavLink to="/" end>
+              <NavLink to="/dashboard" end>
                 Events
               </NavLink>
               <NavLink to="/calendar">Calendar</NavLink>
@@ -33,6 +34,7 @@ export function Layout() {
           </div>
         )}
       </header>
+      <VerifyBanner />
       <main className="page">
         <Outlet />
       </main>

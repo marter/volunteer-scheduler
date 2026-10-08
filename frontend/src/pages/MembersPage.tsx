@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addMember, listMembers } from "../api/members";
+import { addMember, listMembers, markMemberVerified, removeUnverifiedMember } from "../api/members";
 import { extractErrorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { OrgRole } from "../types";
@@ -41,6 +41,16 @@ export function MembersPage() {
       setError(null);
     },
     onError: (err) => setError(extractErrorMessage(err, "Could not add member.")),
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: (userId: string) => markMemberVerified(userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["members"] }),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (userId: string) => removeUnverifiedMember(userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["members"] }),
   });
 
   function handleSubmit(formEvent: FormEvent) {
@@ -128,7 +138,34 @@ export function MembersPage() {
                 {m.user.phone ? ` · ${m.user.phone}` : ""}
               </div>
             </div>
-            <span className="member-role-badge">{m.role.replace("_", " ")}</span>
+            <div className="member-actions">
+              {!m.user.email_verified && (
+                <span className="member-role-badge member-role-badge--pending">
+                  pending verification
+                </span>
+              )}
+              <span className="member-role-badge">{m.role.replace("_", " ")}</span>
+              {isOrgAdmin && !m.user.email_verified && (
+                <>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => verifyMutation.mutate(m.user.id)}
+                    disabled={verifyMutation.isPending}
+                  >
+                    Mark verified
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => removeMutation.mutate(m.user.id)}
+                    disabled={removeMutation.isPending}
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
           </li>
         ))}
       </ul>

@@ -41,7 +41,7 @@ export function RegisterPage() {
         organization_name: organizationName,
         organization_slug: organizationSlug,
       });
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       setError(extractErrorMessage(err, "Could not register."));
     } finally {
@@ -51,6 +51,9 @@ export function RegisterPage() {
 
   return (
     <div className="auth-card">
+      <Link to="/" className="back-link">
+        ‹ What is this?
+      </Link>
       <h1>Register your organization</h1>
       <p className="hint">This creates a new organization and makes you its admin.</p>
       <form onSubmit={handleSubmit}>

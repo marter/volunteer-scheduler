@@ -14,12 +14,14 @@ export interface User {
   phone: string | null;
   full_name: string;
   is_active: boolean;
+  email_verified: boolean;
 }
 
 export interface Me {
   user: User;
   organization: Organization;
   role: OrgRole;
+  verification_required: boolean;
 }
 
 export interface Event {

@@ -19,7 +19,7 @@ export function LoginPage() {
     setIsSubmitting(true);
     try {
       await login({ email, password, organization_slug: organizationSlug });
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       setError(extractErrorMessage(err, "Could not log in."));
     } finally {
@@ -29,6 +29,9 @@ export function LoginPage() {
 
   return (
     <div className="auth-card">
+      <Link to="/" className="back-link">
+        ‹ What is this?
+      </Link>
       <h1>Log in</h1>
       <form onSubmit={handleSubmit}>
         <label>

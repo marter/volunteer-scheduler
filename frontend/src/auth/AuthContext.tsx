@@ -11,6 +11,8 @@ interface AuthContextValue {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => void;
+  /** Re-fetch the current user, e.g. after verifying an email. */
+  refreshMe: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -64,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ me, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ me, isLoading, login, register, logout, refreshMe: loadMe }}>
       {children}
     </AuthContext.Provider>
   );
