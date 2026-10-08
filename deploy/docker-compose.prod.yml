@@ -40,9 +40,18 @@ services:
       DATABASE_URL: postgresql+psycopg://volunteer:${POSTGRES_PASSWORD}@db:5432/volunteer_scheduler
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set in deploy/.env.prod}
       CORS_ORIGINS: '["https://${VOLUNTEER_HOST:?set in deploy/.env.prod}"]'
+      APP_BASE_URL: https://${VOLUNTEER_HOST:?set in deploy/.env.prod}
+      EMAIL_VERIFICATION_REQUIRED: ${EMAIL_VERIFICATION_REQUIRED:-false}
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     networks:
       default:
       web:
@@ -52,6 +61,9 @@ services:
   frontend:
     build: ../frontend
     restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
     networks:
       web:
         aliases: [volunteer-frontend]
