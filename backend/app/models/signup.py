@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import Enum, ForeignKey, UniqueConstraint
+from sqlalchemy import Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,3 +32,7 @@ class SignUp(UUIDPrimaryKeyMixin, OrgScopedMixin, TimestampMixin, Base):
     status: Mapped[SignUpStatus] = mapped_column(
         Enum(SignUpStatus, name="signup_status"), nullable=False, default=SignUpStatus.PENDING
     )
+    # Set whenever an admin-assigned invitation is (re-)sent by email; lets that email's
+    # accept/decline links work without the recipient being logged in. Only a hash is
+    # stored, same as email verification tokens.
+    response_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)

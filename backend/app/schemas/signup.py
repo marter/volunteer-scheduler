@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -28,3 +29,21 @@ class SignUpDetailRead(BaseModel):
     user: UserRead
     starts_at: datetime
     ends_at: datetime
+
+
+class SignUpRespondRequest(BaseModel):
+    token: str
+    action: Literal["accept", "decline"]
+
+
+class SignUpInviteRead(BaseModel):
+    """What an invited volunteer sees from the emailed link, before logging in."""
+
+    status: SignUpStatus
+    organization_name: str
+    event_name: str
+    event_location: str | None
+    event_date: date
+    starts_at: datetime
+    ends_at: datetime
+    position_label: str | None

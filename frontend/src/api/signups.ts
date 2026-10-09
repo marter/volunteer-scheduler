@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { SignUp } from "../types";
+import type { SignUp, SignUpInvite } from "../types";
 
 export async function createSignUp(shiftId: string, userId?: string): Promise<SignUp> {
   const { data } = await apiClient.post<SignUp>("/api/signups", {
@@ -20,5 +20,20 @@ export async function acceptSignUp(signUpId: string): Promise<SignUp> {
 
 export async function declineSignUp(signUpId: string): Promise<SignUp> {
   const { data } = await apiClient.post<SignUp>(`/api/signups/${signUpId}/decline`);
+  return data;
+}
+
+export async function getInviteByToken(token: string): Promise<SignUpInvite> {
+  const { data } = await apiClient.get<SignUpInvite>("/api/signups/respond", {
+    params: { token },
+  });
+  return data;
+}
+
+export async function respondToInvite(
+  token: string,
+  action: "accept" | "decline",
+): Promise<SignUpInvite> {
+  const { data } = await apiClient.post<SignUpInvite>("/api/signups/respond", { token, action });
   return data;
 }

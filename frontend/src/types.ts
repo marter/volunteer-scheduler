@@ -91,6 +91,17 @@ export interface SignUpDetail {
   ends_at: string;
 }
 
+export interface SignUpInvite {
+  status: SignUpStatus;
+  organization_name: string;
+  event_name: string;
+  event_location: string | null;
+  event_date: string;
+  starts_at: string;
+  ends_at: string;
+  position_label: string | null;
+}
+
 export interface Membership {
   user: User;
   role: OrgRole;
