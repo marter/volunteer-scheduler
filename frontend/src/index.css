@@ -447,15 +447,20 @@ select:focus-visible {
 }
 
 .signup-status button {
-  background: var(--danger-bg);
-  color: var(--danger);
-  border-color: transparent;
   padding: 4px 10px;
   font-size: 12px;
   font-weight: 500;
 }
 
-.signup-status button:hover:not(:disabled) {
+/* For a genuinely destructive action (giving up an accepted spot), not Accept/Decline --
+   those are a neutral response to an invitation, not a warning. */
+button.btn-danger-ghost {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: transparent;
+}
+
+button.btn-danger-ghost:hover:not(:disabled) {
   opacity: 1;
   border-color: var(--danger);
 }

@@ -12,3 +12,13 @@ export async function createSignUp(shiftId: string, userId?: string): Promise<Si
 export async function cancelSignUp(signUpId: string): Promise<void> {
   await apiClient.delete(`/api/signups/${signUpId}`);
 }
+
+export async function acceptSignUp(signUpId: string): Promise<SignUp> {
+  const { data } = await apiClient.post<SignUp>(`/api/signups/${signUpId}/accept`);
+  return data;
+}
+
+export async function declineSignUp(signUpId: string): Promise<SignUp> {
+  const { data } = await apiClient.post<SignUp>(`/api/signups/${signUpId}/decline`);
+  return data;
+}

@@ -6,7 +6,7 @@ import { getEvent, listEventSignUps } from "../api/events";
 import { createShift, listShifts } from "../api/shifts";
 import { listMembers } from "../api/members";
 import { createPosition, createTeam, listTeams } from "../api/teams";
-import { cancelSignUp, createSignUp } from "../api/signups";
+import { acceptSignUp, cancelSignUp, createSignUp, declineSignUp } from "../api/signups";
 import { extractErrorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { todayLocalDateTime } from "../dateUtils";
@@ -108,6 +108,24 @@ export function EventDetailPage() {
     },
   });
 
+  const acceptMutation = useMutation({
+    mutationFn: (signUp: SignUpDetail) => acceptSignUp(signUp.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shifts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["signups", eventId] });
+      setSignUpError(null);
+    },
+    onError: (err) => setSignUpError(extractErrorMessage(err, "Could not accept.")),
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: (signUp: SignUpDetail) => declineSignUp(signUp.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shifts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["signups", eventId] });
+    },
+  });
+
   const createTeamMutation = useMutation({
     mutationFn: () => createTeam(eventId!, newTeamName),
     onSuccess: () => {
@@ -169,7 +187,9 @@ export function EventDetailPage() {
 
   const pickerShift = shiftsQuery.data?.find((s) => s.id === pickerShiftId) ?? null;
   const pickerSignUps = pickerShift
-    ? (signUpsByShift.get(pickerShift.id) ?? []).filter((s) => s.status !== "cancelled")
+    ? (signUpsByShift.get(pickerShift.id) ?? []).filter(
+        (s) => s.status === "pending" || s.status === "accepted",
+      )
     : [];
   const pickerCandidates = (membersQuery.data ?? [])
     .filter((m) => m.user.id !== me!.user.id)
@@ -371,10 +391,14 @@ export function EventDetailPage() {
 
       <ul className="shift-list">
         {shiftsQuery.data?.map((shift) => {
-          const shiftSignUps = (signUpsByShift.get(shift.id) ?? []).filter(
+          const visibleSignUps = (signUpsByShift.get(shift.id) ?? []).filter(
             (s) => s.status !== "cancelled",
           );
-          const mySignUp = shiftSignUps.find((s) => s.user.id === me!.user.id);
+          // Only pending/accepted are an active assignment for the "my status" action area --
+          // a declined or past entry shouldn't block signing up again.
+          const myActiveSignUp = visibleSignUps.find(
+            (s) => s.user.id === me!.user.id && (s.status === "pending" || s.status === "accepted"),
+          );
           const isFull = shift.open_slots <= 0;
           const position = shift.position_id ? positionLookup.get(shift.position_id) : undefined;
 
@@ -400,42 +424,64 @@ export function EventDetailPage() {
                 <div className="shift-actions">
                   {canManage && (
                     <button type="button" className="btn-secondary" onClick={() => openPicker(shift.id)}>
-                      Sign up someone…
+                      Invite someone…
                     </button>
                   )}
 
-                  {mySignUp ? (
+                  {myActiveSignUp?.status === "pending" ? (
                     <span className="signup-status">
-                      {mySignUp.status === "confirmed" ? "You're signed up" : "Waitlisted"}
+                      You've been invited
                       <button
                         type="button"
-                        onClick={() => cancelMutation.mutate(mySignUp)}
+                        onClick={() => acceptMutation.mutate(myActiveSignUp)}
+                        disabled={acceptMutation.isPending || declineMutation.isPending}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => declineMutation.mutate(myActiveSignUp)}
+                        disabled={acceptMutation.isPending || declineMutation.isPending}
+                      >
+                        Decline
+                      </button>
+                    </span>
+                  ) : myActiveSignUp?.status === "accepted" ? (
+                    <span className="signup-status">
+                      You're signed up
+                      <button
+                        type="button"
+                        className="btn-danger-ghost"
+                        onClick={() => cancelMutation.mutate(myActiveSignUp)}
                         disabled={cancelMutation.isPending}
                       >
                         Cancel
                       </button>
                     </span>
+                  ) : isFull ? (
+                    <span className="hint">Shift full</span>
                   ) : (
                     <button
                       type="button"
                       onClick={() => signUpMutation.mutate({ shiftId: shift.id })}
                       disabled={signUpMutation.isPending}
                     >
-                      {isFull ? "Join waitlist" : "Sign up"}
+                      Sign up
                     </button>
                   )}
                 </div>
               </div>
 
               <ul className="volunteer-list">
-                {shiftSignUps.length === 0 && <li className="hint">No volunteers yet.</li>}
-                {shiftSignUps.map((signUp) => {
+                {visibleSignUps.length === 0 && <li className="hint">No volunteers yet.</li>}
+                {visibleSignUps.map((signUp) => {
                   const canRemove = canManage || signUp.user.id === me!.user.id;
                   return (
                     <li key={signUp.id}>
                       <span>
                         {signUp.user.full_name}
-                        {signUp.status !== "confirmed" && (
+                        {signUp.status !== "accepted" && (
                           <span className="hint"> ({signUp.status})</span>
                         )}
                       </span>
@@ -458,7 +504,7 @@ export function EventDetailPage() {
       </ul>
 
       {pickerShift && (
-        <Modal title="Sign up someone" onClose={() => setPickerShiftId(null)}>
+        <Modal title="Invite someone" onClose={() => setPickerShiftId(null)}>
           <input
             type="text"
             placeholder="Search by name or email…"
@@ -484,7 +530,7 @@ export function EventDetailPage() {
                   onClick={() => signUpMutation.mutate({ shiftId: pickerShift.id, userId: m.user.id })}
                   disabled={signUpMutation.isPending}
                 >
-                  {pickerShift.open_slots <= 0 ? "Join waitlist" : "Sign up"}
+                  Invite
                 </button>
               </li>
             ))}

@@ -18,9 +18,11 @@ router = APIRouter(prefix="/api/shifts", tags=["shifts"])
 
 
 def _to_read_model(shift: Shift, db: Session) -> ShiftRead:
-    confirmed = (
+    # Only accepted sign-ups hold a shift's capacity -- a pending (admin-assigned, not yet
+    # responded to) invitation doesn't reserve the spot, so an admin can over-invite freely.
+    accepted = (
         db.query(func.count(SignUp.id))
-        .filter(SignUp.shift_id == shift.id, SignUp.status == SignUpStatus.CONFIRMED)
+        .filter(SignUp.shift_id == shift.id, SignUp.status == SignUpStatus.ACCEPTED)
         .scalar()
         or 0
     )
@@ -31,7 +33,7 @@ def _to_read_model(shift: Shift, db: Session) -> ShiftRead:
         starts_at=shift.starts_at,
         ends_at=shift.ends_at,
         capacity=shift.capacity,
-        open_slots=max(shift.capacity - confirmed, 0),
+        open_slots=max(shift.capacity - accepted, 0),
     )
 
 

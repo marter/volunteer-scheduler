@@ -10,8 +10,9 @@ from app.models.base import OrgScopedMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class SignUpStatus(enum.StrEnum):
-    CONFIRMED = "confirmed"
-    WAITLISTED = "waitlisted"
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
     CANCELLED = "cancelled"
     NO_SHOW = "no_show"
 
@@ -29,5 +30,5 @@ class SignUp(UUIDPrimaryKeyMixin, OrgScopedMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
     status: Mapped[SignUpStatus] = mapped_column(
-        Enum(SignUpStatus, name="signup_status"), nullable=False, default=SignUpStatus.CONFIRMED
+        Enum(SignUpStatus, name="signup_status"), nullable=False, default=SignUpStatus.PENDING
     )

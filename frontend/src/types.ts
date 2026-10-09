@@ -1,6 +1,6 @@
 export type OrgRole = "org_admin" | "coordinator" | "volunteer";
 
-export type SignUpStatus = "confirmed" | "waitlisted" | "cancelled" | "no_show";
+export type SignUpStatus = "pending" | "accepted" | "declined" | "cancelled" | "no_show";
 
 export interface Organization {
   id: string;
