@@ -287,7 +287,16 @@ a:hover {
   gap: var(--space-1);
   font-size: 13px;
   font-weight: 500;
+}
+
+/* .inline-form is a row layout where labels wrap and share width; .auth-card form is a
+   column, where flex-grow would stretch each label to fill leftover vertical space. */
+.inline-form label {
   flex: 1 1 160px;
+}
+
+.auth-card label {
+  flex: 0 0 auto;
 }
 
 label {
